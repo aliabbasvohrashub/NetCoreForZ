@@ -6,6 +6,8 @@ using sage.challenge.services;
 using Microsoft.AspNetCore.Mvc;
 using sage.challenge.data.Models;
 using sage.challenge.api.Validators;
+using sage.challenge.api.Helper;
+using sage.challenge.data;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -38,21 +40,28 @@ namespace sage.challenge.api.Controllers
         }
 
         // POST api/<controller>
-        [HttpPost("accounts")] 
+        [HttpPost("accounts")]
         public IActionResult Post([FromBody] AccountRequestModel account)
         {
-            var validator = new AccountValidator();
-            var result = validator.Validate(account);
-            if (!result.IsValid)
-                return BadRequest(result.Errors);
+            string errors = string.Empty;
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState.GetAllValidationErrors());
+            }
             _accountRepository.AddAccount(account);
             return Ok();
         }
 
         // PUT api/<controller>/5
         [HttpPut("accounts/{id}")]
-        public void Put(int id, [FromBody] string value)
+        public IActionResult Put(Guid id, [FromBody] AccountRequestModel account)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState.GetAllValidationErrors());
+            }
+
+            return Ok();
         }
 
         // DELETE api/<controller>/5
@@ -75,21 +84,46 @@ namespace sage.challenge.api.Controllers
         }
 
         [HttpPost("{accountId}/users")]
-        public IActionResult AddUsers(Guid accountId, [FromBody] UserRequestModel user)
+        public async Task<IActionResult> AddUsers(Guid accountId, [FromBody] UserRequestModel user)
         {
-            var validator = new UserValidator();
-            var result = validator.Validate(user);
-            if (!result.IsValid)
-                return BadRequest(result.Errors);
-            _accountRepository.AddUser(accountId, user);
-            return Ok();
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState.GetAllValidationErrors());
+            }
+
+            Account account = await _accountRepository.GetAccount(accountId);
+
+            if (account != null)
+            {
+                _accountRepository.AddUser(accountId, user);
+                return Ok();
+            }
+            else
+            {
+                return BadRequest("account doesn't exist.");
+            }
         }
 
         [HttpDelete("{accountId}/users/{userId}")]
-        public void DeleteUser(Guid accountId, Guid userId)
+        public async Task<IActionResult> DeleteUser(Guid accountId, Guid userId)
         {
-            _accountRepository.DeleteUser(accountId, userId);
+            Account account = await _accountRepository.GetAccount(accountId);
+            
+            if (account != null)
+            {
+                List<User> users = await _accountRepository.GetUsersByAccountId(accountId);
+                if (users != null)
+                {
+                    User user = users.Where(x => x.Id == userId).FirstOrDefault();
+                    if (user != null)
+                    {
+                        _accountRepository.DeleteUser(accountId, userId);
+                        return Ok("user deleted.");
+                    }
+                }
+                return BadRequest("user doesn't exist.");
+            }
+            return BadRequest("account doesn't exist.");
         }
-
     }
 }

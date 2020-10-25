@@ -10,10 +10,12 @@ namespace sage.challenge.business
     public static class BaseAccounts
     {
         public static List<Account> _accounts;
+        private static bool accountExists { get { return _accounts != null; } }
+
         #region Account
         public static List<Account> GetAllAccounts()
         {
-            if (_accounts == null)
+            if (!accountExists)
             {
                 _accounts = new List<Account>(){
                     new Account()
@@ -37,8 +39,11 @@ namespace sage.challenge.business
         }
         public static void AddAccount(AccountRequestModel account)
         {
-            if (_accounts == null)
+            if (!accountExists)
+            {
                 _accounts = new List<Account>();
+            }
+
             _accounts.Add(new Account
             {
                 CompanyName = account.CompanyName,
@@ -47,20 +52,27 @@ namespace sage.challenge.business
         }
         public static Account GetAccount(Guid id)
         {
-            return _accounts.FirstOrDefault(x => x.Id == id);
+            if (accountExists)
+                return _accounts.FirstOrDefault(x => x.Id == id);
+            return null;
         }
         public static void RemoveAccount(Account account)
         {
-            if (_accounts == null)
+            if (accountExists)
             {
-                _accounts = new List<Account>();
+                if (_accounts.Count(x => x.Id == account.Id) > 0)
+                {
+                    _accounts.Remove(account);
+                }
             }
-            _accounts.Remove(account);
         }
         public static void DeleteAccount(Guid accountId)
         {
             Account account = _accounts.FirstOrDefault(a => a.Id == accountId);
-            _accounts.Remove(account);
+            if (!accountExists)
+            {
+                _accounts.Remove(account);
+            }
         }
         #endregion
 
